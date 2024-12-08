@@ -12,20 +12,15 @@ import loan.Exponential;
 import loan.Linear;
 import loan.Loan;
 
+import java.lang.reflect.Array;
 import java.util.ArrayList;
 
 public class MainActivity extends AppCompatActivity {
-
-    // UI Components for Selection Layer
     private EditText loanField, monthField, fromField, toField;
     private CheckBox postponeCB;
     private RadioGroup radioGroup;
     private Button calculateButton;
-
-    // UI Component for Graph Layer
     private LineChart lineChart;
-
-    // Tabs
     private View selectionLayer, graphLayer;
 
     @Override
@@ -33,11 +28,9 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        // Initialize layers
         selectionLayer = findViewById(R.id.selectionLayer);
         graphLayer = findViewById(R.id.graphLayer);
 
-        // Initialize Selection Components
         loanField = findViewById(R.id.loanField);
         monthField = findViewById(R.id.MonthField);
         fromField = findViewById(R.id.fromField);
@@ -46,10 +39,8 @@ public class MainActivity extends AppCompatActivity {
         radioGroup = findViewById(R.id.radioGroup);
         calculateButton = findViewById(R.id.calculateButton);
 
-        // Initialize Graph Components
         lineChart = findViewById(R.id.lineChart);
 
-        // Setup Tab Layout
         TabLayout tabLayout = findViewById(R.id.tabLayout);
         tabLayout.addOnTabSelectedListener(new TabLayout.OnTabSelectedListener() {
             @Override
@@ -68,10 +59,8 @@ public class MainActivity extends AppCompatActivity {
             public void onTabReselected(TabLayout.Tab tab) {}
         });
 
-        // Default to Selection Layer
         showSelectionLayer();
 
-        // Setup Calculate Button
         calculateButton.setOnClickListener(v -> calculateLoan());
     }
 
@@ -88,36 +77,34 @@ public class MainActivity extends AppCompatActivity {
         try {
             double loanAmount = Double.parseDouble(loanField.getText().toString());
             int months = Integer.parseInt(monthField.getText().toString());
-            int from = Integer.parseInt(fromField.getText().toString());
-            int to = Integer.parseInt(toField.getText().toString());
 
             Loan loan;
             int selectedLoanType = radioGroup.getCheckedRadioButtonId();
             if (selectedLoanType == R.id.ExponentialRC) {
-                loan = new Exponential(5.0, loanAmount, months); // Replace 5.0 with dynamic interest rate if needed
+                loan = new Exponential(5.0, loanAmount, months);
             } else if (selectedLoanType == R.id.AnnuentialRC) {
-                loan = new Annuential(5.0, loanAmount, months); // Replace 5.0 with dynamic interest rate if needed
+                loan = new Annuential(5.0, loanAmount, months);
             } else {
-                loan = new Linear(5.0, loanAmount, months); // Replace 5.0 with dynamic interest rate if needed
+                loan = new Linear(5.0, loanAmount, months);
             }
 
             // Apply the delay logic
+            loan.calculateAndStoreMonthlyPayments();
             double[] monthlyPayments = loan.getMonthlyPaymentsData();
-            if (postponeCB.isChecked()) {
-                if (from < 1 || to > months || from > to) {
-                    Toast.makeText(this, "Invalid delay range!", Toast.LENGTH_SHORT).show();
-                    return;
-                }
 
-                for (int i = from - 1; i < to; i++) {
-                    monthlyPayments[i] = 0.0;
-                }
+            if (postponeCB.isChecked()) {
+                int from = Integer.parseInt(fromField.getText().toString());
+                int to = Integer.parseInt(toField.getText().toString());
+                double[] tmp = new double[monthlyPayments.length + Math.abs(from - to)];
+                Toast.makeText(this, "Loan calculated with delay from " + from + " to " + to, Toast.LENGTH_SHORT).show();
+
+                if ((from >= 1 && to <= months && from <= to))
+                    monthlyPayments = slinkyArrays(monthlyPayments, from, to);
+
             }
 
-            // Update the graph with delayed payments
-            populateGraph(monthlyPayments);
 
-            Toast.makeText(this, "Loan calculated with delay from " + from + " to " + to, Toast.LENGTH_SHORT).show();
+            populateGraph(monthlyPayments);
         } catch (NumberFormatException e) {
             Toast.makeText(this, "Invalid input. Please check your fields.", Toast.LENGTH_SHORT).show();
         }
@@ -139,6 +126,31 @@ public class MainActivity extends AppCompatActivity {
         LineData lineData = new LineData(dataSet);
         lineChart.setData(lineData);
 
-        lineChart.invalidate(); // Refresh the chart
+        lineChart.invalidate();
+    }
+
+
+    private double[] slinkyArrays(double[] payments, int frm, int to) {
+        int delay = Math.abs(frm - to);
+        double[] result = new double[payments.length + delay];
+
+        int resultIndex = 0;
+        int paymentIndex = 0;
+
+        while (paymentIndex < payments.length) {
+            if (paymentIndex == frm) {
+                for (int j = 0; j < delay; j++) {
+                    if (resultIndex < result.length)
+                        result[resultIndex++] = 0.0;
+                }
+
+            }
+            if (resultIndex < result.length) {
+                result[resultIndex++] = payments[paymentIndex];
+            }
+            paymentIndex++;
+        }
+
+        return result;
     }
 }
